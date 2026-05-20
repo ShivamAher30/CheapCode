@@ -1,0 +1,25 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Workspace {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  title       String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  messages    Json     @default("[]")
+  modelUsed   String?  @map("model_used")
+  
+  @@index([userId])
+  @@map("workspaces")
+}
+
