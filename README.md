@@ -8,14 +8,6 @@ CheapCode provides a powerful command-line interface for interacting with AI mod
 
 ### Screenshots
 
-#### Agent Selection
-![Agent Selection](./assets/Screenshot%202026-06-16%20140157.png)
-*Select from multiple AI agents (Ask, Build, Plan) to match your task type*
-
-#### Model Selection
-![Model Selection](./assets/Screenshot%202026-06-16%20140201.png)
-*Choose from local Ollama models or cloud providers (Claude, GPT)*
-
 #### Main Interface
 ![Main Interface](./assets/Screenshot%202026-06-18%20123512.png)
 *Clean terminal interface for conversational AI coding assistance*
@@ -23,6 +15,10 @@ CheapCode provides a powerful command-line interface for interacting with AI mod
 #### Command Menu
 ![Command Menu](./assets/Screenshot%202026-06-18%20125136.png)
 *Quick access to workspaces, models, themes, and account features*
+
+#### Model Selection
+![Model Selection](./assets/Screenshot%202026-06-18%20125902.png)
+*Choose from local Ollama models or cloud providers (Claude, GPT)*
 
 ### Key Features
 
