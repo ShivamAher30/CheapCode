@@ -1,11 +1,16 @@
 {
-  "name": "@localcode/cli",
+  "name": "cheapcode",
   "module": "src/index.tsx",
   "type": "module",
-  "private": true,
+  "private": false,
   "bin": {
-    "localcode": "./bin/localcode"
+    "cheapcode": "./bin/cheapcode"
   },
+  "files": [
+    "dist",
+    "bin",
+    "package.json"
+  ],
   "scripts": {
     "dev": "bun run --watch src/index.tsx",
     "build": "bun build src/index.tsx --outdir dist --target bun"

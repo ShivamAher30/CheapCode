@@ -1,0 +1,23 @@
+#!/usr/bin/env bun
+import dotenv from "dotenv";
+import path from "path";
+import fs from "fs";
+
+// Load .env from current working directory first
+const localEnvPath = path.resolve(process.cwd(), ".env");
+if (fs.existsSync(localEnvPath)) {
+  dotenv.config({ path: localEnvPath });
+} else {
+  dotenv.config({
+    path: path.resolve(import.meta.dirname, "../../../.env"),
+    quiet: true,
+  });
+}
+
+// Resolve entry point (use dist if it exists, fallback to src for development)
+const distPath = path.resolve(import.meta.dirname, "../dist/index.js");
+if (fs.existsSync(distPath)) {
+  await import(distPath);
+} else {
+  await import("../src/index.tsx");
+}

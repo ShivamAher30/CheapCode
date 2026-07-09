@@ -5,6 +5,19 @@ import { RootLayout } from "./layouts/root-layout";
 import { Home } from "./screens/home";
 import { NewWorkspace } from "./screens/new-workspace";
 import { Workspace } from "./screens/workspace";
+import server from "@localcode/server";
+
+// Start the backend server programmatically on port 3000 if not already running
+try {
+  Bun.serve({
+    port: 3000,
+    fetch: server.fetch,
+    idleTimeout: 255,
+  });
+} catch (error) {
+  // Server might already be running (e.g., in dev mode)
+}
+
 
 const router = createMemoryRouter([
   {
