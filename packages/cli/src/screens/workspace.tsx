@@ -64,11 +64,13 @@ function WorkspaceChat({
   initialPrompt?: { message: string; mode: ModeType; model: SupportedChatModelId };
 }) {
   const [initialMessages] = useState(() => workspace.messages as unknown as Message[]);
-  const { mode, model } = usePromptConfig();
+  const { mode, model, groqApiKey, ollamaBaseUrl } = usePromptConfig();
   const { isTopLayer } = useKeyboardLayer();
   const { messages, status, submit, abort, interrupt, error } = useChat(
     workspace.id,
-    initialMessages
+    initialMessages,
+    groqApiKey,
+    ollamaBaseUrl,
   );
   const hasSubmittedInitialPromptRef = useRef(false);
 

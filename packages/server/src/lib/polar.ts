@@ -2,24 +2,20 @@ import { Polar } from "@polar-sh/sdk";
 
 type PolarServer = "sandbox" | "production";
 
-function getRequiredEnv(name: string) {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`${name} environment variable is required`);
-  }
-  return value;
+function getOptionalEnv(name: string) {
+  return process.env[name] || null;
 }
 
 export function getPolarAccessToken() {
-  return getRequiredEnv("POLAR_ACCESS_TOKEN");
+  return getOptionalEnv("POLAR_ACCESS_TOKEN");
 }
 
 export function getPolarProductId() {
-  return getRequiredEnv("POLAR_PRODUCT_ID");
+  return getOptionalEnv("POLAR_PRODUCT_ID");
 }
 
 export function getPolarCreditsMeterId() {
-  return getRequiredEnv("POLAR_CREDITS_METER_ID");
+  return getOptionalEnv("POLAR_CREDITS_METER_ID");
 }
 
 export function getPolarServer(): PolarServer {
@@ -35,10 +31,28 @@ export function getPolarServer(): PolarServer {
   return server;
 }
 
-const polar = new Polar({
-  accessToken: getPolarAccessToken(),
-  server: getPolarServer(),
-});
+/** Returns true if Polar billing is configured */
+export function isPolarConfigured() {
+  return getPolarAccessToken() != null;
+}
+
+let _polar: Polar | null = null;
+
+function getPolar(): Polar {
+  if (!_polar) {
+    const accessToken = getPolarAccessToken();
+    if (!accessToken) {
+      throw new Error(
+        "Polar billing is not configured. Set POLAR_ACCESS_TOKEN to enable billing."
+      );
+    }
+    _polar = new Polar({
+      accessToken,
+      server: getPolarServer(),
+    });
+  }
+  return _polar;
+}
 
 function hasStatusCode(error: unknown): error is { statusCode: number } {
   return (
@@ -58,8 +72,13 @@ export async function createCheckoutUrl({
   customerExternalId,
   requestUrl,
 }: CreateCheckoutUrlParams) {
-  const result = await polar.checkouts.create({
-    products: [getPolarProductId()],
+  const productId = getPolarProductId();
+  if (!productId) {
+    throw new Error("Polar billing is not configured (missing POLAR_PRODUCT_ID)");
+  }
+
+  const result = await getPolar().checkouts.create({
+    products: [productId],
     successUrl: new URL("/billing/success", requestUrl).toString(),
     externalCustomerId: customerExternalId,
     metadata: { source: "cheapcode-cli" },
@@ -72,7 +91,7 @@ export async function createCustomerPortalUrl({
   customerExternalId,
   requestUrl,
 }: CreateCheckoutUrlParams) {
-  const result = await polar.customerSessions.create({
+  const result = await getPolar().customerSessions.create({
     externalCustomerId: customerExternalId,
     returnUrl: new URL("/billing/success", requestUrl).toString(),
   });
@@ -81,13 +100,19 @@ export async function createCustomerPortalUrl({
 };
 
 export async function getAvailableCreditsBalance(customerExternalId: string) {
+  if (!isPolarConfigured()) {
+    // If billing isn't configured, allow unlimited usage
+    return Infinity;
+  }
+
   try {
-    const customerState = await polar.customers.getStateExternal({
+    const customerState = await getPolar().customers.getStateExternal({
       externalId: customerExternalId,
     });
 
+    const meterId = getPolarCreditsMeterId();
     const matchingMeters = customerState.activeMeters.filter(
-      (meter) => meter.meterId === getPolarCreditsMeterId(),
+      (meter) => meter.meterId === meterId,
     );
 
     if (matchingMeters.length > 1) {
@@ -116,11 +141,11 @@ export async function ingestAiUsage({
   eventId, 
   credits
 }: IngestAiUsageParams) {
-  if (credits <= 0) {
+  if (credits <= 0 || !isPolarConfigured()) {
     return;
   }
 
-  await polar.events.ingest({
+  await getPolar().events.ingest({
     events: [
       {
         name: "cheapcode_usage",
@@ -131,3 +156,4 @@ export async function ingestAiUsage({
     ],
   });
 };
+

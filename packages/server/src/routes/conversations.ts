@@ -9,8 +9,6 @@ import {
   type LanguageModelUsage,
   type UIMessage,
 } from "ai";
-import { db } from "@localcode/database/client";
-import type { Prisma } from "@localcode/database";
 import { 
   getToolContracts, 
   modeSchema, 
@@ -18,11 +16,8 @@ import {
   type ToolContracts
 } from "@localcode/shared";
 import { buildSystemPrompt } from "../system-prompt";
-import type { AuthenticatedEnv } from "../middleware/require-auth";
-import { requireCreditsBalance } from "../middleware/require-credits-balance";
-import { calculateCreditsForUsage } from "../lib/credits";
-import { ingestAiUsage } from "../lib/polar";
 import { isSupportedChatModel, resolveChatModel } from "../lib/models";
+import { getWorkspace, updateWorkspaceMessages } from "./workspaces";
 
 type ConversationMessageMetadata = {
   mode?: ModeType;
@@ -44,6 +39,8 @@ const submitSchema = z.object({
     .min(1),
   mode: modeSchema,
   model: z.string().refine(isSupportedChatModel, "Unsupported model"),
+  groqApiKey: z.string().optional(),
+  ollamaBaseUrl: z.string().optional(),
 });
 
 const submitValidator = zValidator("json", submitSchema, (result, c) => {
@@ -63,26 +60,21 @@ function hasPendingToolCalls(message: LocalCodeUIMessage) {
   });
 };
 
-const app = new Hono<AuthenticatedEnv>()
+const app = new Hono()
   .post(
     "/stream",
-    requireCreditsBalance,
     submitValidator,
     async (c) => {
-      const userId = c.get("userId");
-      const { id, messages, mode, model } = c.req.valid("json");
+      const { id, messages, mode, model, groqApiKey, ollamaBaseUrl } = c.req.valid("json");
 
-      const workspace = await db.workspace.findUnique({
-        where: { id, userId },
-      });
-
+      const workspace = getWorkspace(id);
       if (!workspace) {
         return c.json({ error: "Workspace not found" }, 404);
       }
 
       const startTime = Date.now();
       const tools = getToolContracts(mode);
-      const resolvedModel = resolveChatModel(model);
+      const resolvedModel = resolveChatModel(model, groqApiKey, ollamaBaseUrl);
       const previousMessages = Array.isArray(workspace.messages)
         ? (workspace.messages as unknown as LocalCodeUIMessage[])
         : [];
@@ -110,14 +102,21 @@ const app = new Hono<AuthenticatedEnv>()
       const modelMessages = await convertToModelMessages(nextMessages, { tools });
       let completedUsage: LanguageModelUsage | null = null;
 
+      console.log(`[Chat] ${resolvedModel.provider}/${model} | mode=${mode} | msgs=${modelMessages.length}`);
+
       const result = streamText({
         model: resolvedModel.model,
-        system: buildSystemPrompt({ mode }),
+        system: buildSystemPrompt({ mode, provider: resolvedModel.provider }),
         messages: modelMessages,
         tools,
         providerOptions: resolvedModel.providerOptions,
+        onStepFinish(event) {
+          const toolNames = event.toolCalls?.map(t => t.toolName).join(", ") || "none";
+          console.log(`[Chat] step finish | text=${event.text.length}chars | tools=[${toolNames}]`);
+        },
         onFinish(event) {
           completedUsage = event.totalUsage;
+          console.log(`[Chat] done | steps=${event.steps.length} | usage=${JSON.stringify(event.totalUsage)}`);
         },
       });
 
@@ -139,38 +138,9 @@ const app = new Hono<AuthenticatedEnv>()
         },
         async onFinish(event) {
           if (event.isAborted) return;
-
           if (hasPendingToolCalls(event.responseMessage)) return;
 
-          await db.workspace.update({
-            where: { id, userId },
-            data: {
-              messages: event.messages as unknown as Prisma.InputJsonValue,
-            },
-          });
-
-          if (!completedUsage) return;
-
-          try {
-            const billableUsage = calculateCreditsForUsage({
-              provider: resolvedModel.provider,
-              model: resolvedModel.modelId,
-              usage: completedUsage,
-            });
-
-            await ingestAiUsage({
-              externalCustomerId: userId,
-              eventId: `conversation-message:${event.responseMessage.id}`,
-              credits: billableUsage.credits,
-            });
-          } catch (error) {
-            console.error("Failed to ingest Polar AI usage for conversation message", {
-              error,
-              workspaceId: id,
-              messageId: event.responseMessage.id,
-              userId,
-            });
-          }
+          updateWorkspaceMessages(id, event.messages);
         },
         onError(error) {
           return error instanceof Error ? error.message : String(error);

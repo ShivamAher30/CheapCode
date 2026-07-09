@@ -1,5 +1,5 @@
 import { anthropic } from "@ai-sdk/anthropic";
-import { openai } from "@ai-sdk/openai";
+import { openai, createOpenAI } from "@ai-sdk/openai";
 import { createOllama } from "ollama-ai-provider";
 import {
   findSupportedChatModel,
@@ -13,6 +13,7 @@ import type { LanguageModel } from "ai";
 type AnthropicModelId = Extract<SupportedChatModel, { provider: "anthropic" }>["id"];
 type OpenAIModelId = Extract<SupportedChatModel, { provider: "openai" }>["id"];
 type OllamaModelId = Extract<SupportedChatModel, { provider: "ollama" }>["id"];
+type GroqModelId = Extract<SupportedChatModel, { provider: "groq" }>["id"];
 
 export type ResolvedModel = {
   model: LanguageModel;
@@ -77,15 +78,54 @@ function resolveOpenAIModel(modelId: OpenAIModelId): ResolvedModel {
   };
 };
 
-function resolveOllamaModel(modelId: OllamaModelId): ResolvedModel {
+function resolveOllamaModel(modelId: OllamaModelId, ollamaBaseUrl?: string): ResolvedModel {
+  const resolvedBaseUrl = ollamaBaseUrl || process.env.OLLAMA_BASE_URL || "http://localhost:11434/api";
+  const customOllama = createOllama({
+    baseURL: resolvedBaseUrl,
+  });
   return {
-    model: ollama(modelId),
+    model: customOllama(modelId),
     provider: "ollama",
     modelId,
   };
 };
 
-function resolveSupportedChatModel(model: SupportedChatModel): ResolvedModel {
+/**
+ * Resolve a Groq model using either a user-provided API key (BYOK)
+ * or the server-configured GROQ_API_KEY from environment variables.
+ * Uses OpenAI-compatible endpoint since Groq's API follows the OpenAI spec.
+ */
+function resolveGroqModel(modelId: GroqModelId, apiKey?: string): ResolvedModel {
+  const resolvedApiKey = apiKey || process.env.GROQ_API_KEY;
+  
+  if (!resolvedApiKey) {
+    throw new Error(
+      "Groq API key is required. Use /groq command to set your API key, " +
+      "or set GROQ_API_KEY in the server environment."
+    );
+  }
+
+  // Use OpenAI-compatible provider pointed at Groq's endpoint
+  const groq = createOpenAI({
+    baseURL: "https://api.groq.com/openai/v1",
+    apiKey: resolvedApiKey,
+  });
+
+  return {
+    model: groq(modelId),
+    provider: "groq",
+    modelId,
+    // Force tool use: without this, Llama/Mixtral just respond with text instead of calling tools.
+    // "required" means the model MUST call at least one tool before giving a text response.
+    providerOptions: {
+      openai: {
+        toolChoice: "required",
+      },
+    },
+  };
+};
+
+function resolveSupportedChatModel(model: SupportedChatModel, groqApiKey?: string, ollamaBaseUrl?: string): ResolvedModel {
   const provider = model.provider;
 
   switch (provider) {
@@ -94,7 +134,9 @@ function resolveSupportedChatModel(model: SupportedChatModel): ResolvedModel {
     case "openai":
       return resolveOpenAIModel(model.id);
     case "ollama":
-      return resolveOllamaModel(model.id);
+      return resolveOllamaModel(model.id, ollamaBaseUrl);
+    case "groq":
+      return resolveGroqModel(model.id, groqApiKey);
     default:
       return assertUnsupportedProvider(provider);
   }
@@ -104,11 +146,16 @@ export function isSupportedChatModel(modelId: string): modelId is SupportedChatM
   return findSupportedChatModel(modelId) != null;
 };
 
-export function resolveChatModel(modelId: string): ResolvedModel {
+/**
+ * Resolve a chat model by ID. For Groq models, an optional API key can be
+ * provided by the user (BYOK). If not provided, falls back to the server's
+ * GROQ_API_KEY environment variable.
+ */
+export function resolveChatModel(modelId: string, groqApiKey?: string, ollamaBaseUrl?: string): ResolvedModel {
   const model = findSupportedChatModel(modelId);
   if (!model) {
     throw new Error(`Unsupported model: ${modelId}`);
   }
 
-  return resolveSupportedChatModel(model);
+  return resolveSupportedChatModel(model, groqApiKey, ollamaBaseUrl);
 };

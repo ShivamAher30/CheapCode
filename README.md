@@ -2,9 +2,24 @@
 
 A professional terminal-based AI coding assistant designed to work with local AI models through Ollama, enabling cost-effective development without reliance on expensive cloud APIs.
 
+**🆕 NEW: Autonomous Agent Mode with explicit planning, automatic verification, and error recovery!**
+
 ## Overview
 
 CheapCode provides a powerful command-line interface for interacting with AI models to assist with coding tasks. The primary goal is to enable developers to leverage advanced AI capabilities using local models via Ollama, eliminating API costs while maintaining privacy and control over their development environment.
+
+### What's New: Agent Mode 🤖
+
+We've added an **autonomous agent system** that transforms CheapCode into a sophisticated multi-step assistant:
+
+- **📋 Explicit Planning** - Creates structured task lists before execution
+- **🔄 Multi-Step Execution** - Breaks complex goals into manageable tasks
+- **✅ Automatic Verification** - Runs tests and builds automatically
+- **🔧 Error Recovery** - Auto-repairs failed verifications
+- **📊 Progress Tracking** - Real-time updates on execution
+- **🎯 Task Dependencies** - Smart task ordering and blocking
+
+[Learn more about Agent Mode →](./AGENT_QUICK_START.md)
 
 ### Screenshots
 
@@ -23,9 +38,14 @@ CheapCode provides a powerful command-line interface for interacting with AI mod
 ### Key Features
 
 - **Local-First Architecture**: Run AI models locally using Ollama (Llama, Mistral, CodeLlama, and more)
+- **Autonomous Agent Mode**: Multi-step planning with automatic verification and repair
 - **Cloud AI Optional**: Support for Anthropic Claude and OpenAI GPT models when needed
 - **Terminal User Interface**: Clean, efficient TUI built with React and OpenTUI
 - **Workspace Management**: Organize and manage multiple coding sessions
+- **Three Operating Modes**:
+  - **PLAN** - Read-only analysis and exploration
+  - **BUILD** - Direct implementation with immediate execution
+  - **AGENT** - Autonomous multi-step execution with planning
 - **Conversational Interface**: Natural language interaction for coding assistance
 - **High Performance**: Built on Bun runtime for optimal speed
 - **Secure Authentication**: OAuth integration via Clerk
@@ -261,6 +281,14 @@ Contributions are welcome. Please follow these guidelines:
 2. Create a feature branch
 3. Make your changes with clear commit messages
 4. Submit a pull request with a detailed description
+
+## Documentation
+
+- **[Quick Start Guide](./AGENT_QUICK_START.md)** - Get started with Agent Mode in 5 minutes
+- **[Architecture Overview](./AGENT_ARCHITECTURE.md)** - System design and technical details
+- **[Migration Guide](./AGENT_MIGRATION_GUIDE.md)** - Comprehensive usage guide
+- **[Agent Technical Docs](./packages/server/src/agent/README.md)** - Deep dive into the agent system
+- **[Implementation Summary](./IMPLEMENTATION_SUMMARY.md)** - What was built and why
 
 ## License
 

@@ -1,6 +1,5 @@
 import { hc } from "hono/client";
 import type { AppType } from "@localcode/server";
-import { clearAuth, getAuth } from "./auth";
 
 // Default timeout for API requests (30 seconds)
 const DEFAULT_TIMEOUT_MS = 30000;
@@ -21,25 +20,13 @@ export const apiClient = hc<AppType>(
       input: Parameters<typeof fetch>[0],
       init?: Parameters<typeof fetch>[1]
     ) => {
-      const headers = new Headers(init?.headers);
-      const auth = getAuth();
-
-      if (auth) {
-        headers.set("Authorization", `Bearer ${auth.token}`);
-      }
-
       // Add timeout unless explicitly disabled (signal = null) or already provided
       const signal = init?.signal === undefined 
         ? createTimeoutSignal(DEFAULT_TIMEOUT_MS)
         : init?.signal;
 
       try {
-        const response = await fetch(input, { ...init, headers, signal });
-        
-        if (response.status === 401) {
-          clearAuth();
-        }
-
+        const response = await fetch(input, { ...init, signal });
         return response;
       } catch (error) {
         // Convert AbortError to a more user-friendly timeout error

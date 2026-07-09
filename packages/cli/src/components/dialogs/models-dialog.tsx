@@ -1,7 +1,6 @@
 import { useCallback } from "react";
 import { useDialog } from "../../providers/dialog";
 import { DialogSearchList } from "../dialog-search-list";
-import { Mode } from "@localcode/database/enums";
 import type { SupportedChatModelId } from "@localcode/shared";
 import { SUPPORTED_CHAT_MODELS } from "@localcode/shared";
 
@@ -42,6 +41,7 @@ export const ModelsDialogContent = ({
       renderItem={(modelId, isSelected) => {
         const model = getModelInfo(modelId);
         const isLocal = model?.provider === "ollama";
+        const isGroq = model?.provider === "groq";
         
         return (
           <box flexDirection="row" gap={1}>
@@ -53,7 +53,12 @@ export const ModelsDialogContent = ({
                 [Local]
               </text>
             )}
-            {model && model.provider !== "ollama" && (
+            {isGroq && (
+              <text selectable={false} fg={isSelected ? "yellow" : "yellow"}>
+                [Groq ⚡]
+              </text>
+            )}
+            {model && model.provider !== "ollama" && model.provider !== "groq" && (
               <text selectable={false} fg={isSelected ? "gray" : "gray"} dim>
                 ({model.provider})
               </text>
@@ -62,7 +67,7 @@ export const ModelsDialogContent = ({
         );
       }}
       getKey={(modelId) => modelId}
-      placeholder="Search models (type 'local' for Ollama)"
+      placeholder="Search models (type 'local', 'groq', etc.)"
       emptyText="No matching models"
     />
   );

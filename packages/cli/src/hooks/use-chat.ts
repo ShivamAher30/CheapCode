@@ -9,7 +9,6 @@ import {
 } from "ai";
 import { type ModeType, type SupportedChatModelId, type ToolContracts } from "@localcode/shared";
 import { apiClient } from "../lib/api-client";
-import { getAuth } from "../lib/auth";
 import { executeLocalTool } from "../lib/local-tools";
 
 // Retry configuration
@@ -17,11 +16,15 @@ const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
 const RETRY_BACKOFF_MULTIPLIER = 2;
 
+// Enrichment configuration
+const MAX_ENRICHMENT_FAILURES = 3;
+
 export type ChatMessageMetadata = {
   mode?: ModeType;
   model?: SupportedChatModelId | string;
   durationMs?: number;
   usage?: LanguageModelUsage;
+  enrichmentApplied?: string[];
 };
 
 type ChatTools = {
@@ -66,15 +69,14 @@ async function retryWithBackoff<T>(
   }
 }
 
-export function useChat(workspaceId: string, initialMessages: Message[]) {
+export function useChat(workspaceId: string, initialMessages: Message[], groqApiKey?: string | null, ollamaBaseUrl?: string | null) {
   const [retryCount, setRetryCount] = useState(0);
+  const [enrichmentEnabled, setEnrichmentEnabled] = useState(true);
+  const [enrichmentFailures, setEnrichmentFailures] = useState(0);
+  
   const transport = useMemo(() => {
     return new DefaultChatTransport<Message>({
       api: apiClient.api.v1.conversations.stream.$url().toString(),
-      headers() {
-        const auth = getAuth();
-        return auth ? { Authorization: `Bearer ${auth.token}` } : new Headers();
-      },
       prepareSendMessagesRequest({ messages }) {
         const message = messages[messages.length - 1];
         if (!message) throw new Error("No message to send");
@@ -94,11 +96,13 @@ export function useChat(workspaceId: string, initialMessages: Message[]) {
             messages: requestMessages,
             mode: message.metadata?.mode ?? metadata?.mode,
             model: message.metadata?.model ?? metadata?.model,
+            ...(groqApiKey ? { groqApiKey } : {}),
+            ...(ollamaBaseUrl ? { ollamaBaseUrl } : {}),
           },
         }
       }
     });
-  }, [workspaceId]);
+  }, [workspaceId, groqApiKey, ollamaBaseUrl]);
 
   const chat = useAiChat<Message>({
     id: workspaceId,
@@ -134,16 +138,73 @@ export function useChat(workspaceId: string, initialMessages: Message[]) {
     messages: chat.messages,
     status: chat.status,
     error: chat.error,
-    submit: (params: { userText: string; mode: ModeType; model: SupportedChatModelId }) => {
+    submit: async (params: { userText: string; mode: ModeType; model: SupportedChatModelId }) => {
+      let finalText = params.userText;
+      let enrichmentApplied: string[] | undefined;
+
+      // Try enrichment if enabled and not disabled due to failures
+      if (enrichmentEnabled && enrichmentFailures < MAX_ENRICHMENT_FAILURES) {
+        try {
+          const enrichmentResponse = await apiClient.api.v1.enrichment.analyze.$post({
+            json: {
+              userPrompt: params.userText,
+              mode: params.mode,
+              workspaceId,
+              ...(groqApiKey ? { groqApiKey } : {}),
+              ...(ollamaBaseUrl ? { ollamaBaseUrl } : {}),
+            },
+          });
+
+          if (enrichmentResponse.ok) {
+            const enrichmentData = await enrichmentResponse.json();
+            
+            // Use enriched prompt if enrichment was applied
+            if (enrichmentData.wasEnriched) {
+              finalText = enrichmentData.enrichedPrompt;
+              enrichmentApplied = enrichmentData.enrichmentApplied;
+            }
+            
+            // Reset failure count on success
+            setEnrichmentFailures(0);
+          } else {
+            // Enrichment failed, increment failure count
+            setEnrichmentFailures(prev => prev + 1);
+            
+            // Disable enrichment if we've hit max failures
+            if (enrichmentFailures + 1 >= MAX_ENRICHMENT_FAILURES) {
+              setEnrichmentEnabled(false);
+              console.warn("Enrichment disabled due to repeated failures");
+            }
+          }
+        } catch (error) {
+          // Enrichment error, increment failure count but continue with original
+          console.error("Enrichment error:", error);
+          setEnrichmentFailures(prev => prev + 1);
+          
+          // Disable enrichment if we've hit max failures
+          if (enrichmentFailures + 1 >= MAX_ENRICHMENT_FAILURES) {
+            setEnrichmentEnabled(false);
+            console.warn("Enrichment disabled due to repeated failures");
+          }
+        }
+      }
+
       return chat.sendMessage({
-        text: params.userText,
+        text: finalText,
         metadata: {
           mode: params.mode,
           model: params.model,
+          enrichmentApplied,
         },
-      })
+      });
     },
     abort: chat.stop,
     interrupt: chat.stop,
+    enrichmentEnabled,
+    toggleEnrichment: () => {
+      setEnrichmentEnabled(prev => !prev);
+      // Reset failure count when manually toggling
+      setEnrichmentFailures(0);
+    },
   };
 };

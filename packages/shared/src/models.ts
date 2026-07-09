@@ -3,7 +3,7 @@ export type ModelPricing = {
   outputUsdPerMillionTokens: number;
 };
 
-export type SupportedProvider = "anthropic" | "openai" | "ollama";
+export type SupportedProvider = "anthropic" | "openai" | "ollama" | "groq";
 
 type SupportedChatModelDefinition = {
   id: string;
@@ -58,6 +58,39 @@ export const SUPPORTED_CHAT_MODELS = [
     pricing: {
       inputUsdPerMillionTokens: 0.2,
       outputUsdPerMillionTokens: 1.25,
+    },
+  },
+  // Groq models (BYOK - user provides their own API key)
+  {
+    id: "llama-3.3-70b-versatile",
+    provider: "groq",
+    pricing: {
+      inputUsdPerMillionTokens: 0.59,
+      outputUsdPerMillionTokens: 0.79,
+    },
+  },
+  {
+    id: "llama-3.1-8b-instant",
+    provider: "groq",
+    pricing: {
+      inputUsdPerMillionTokens: 0.05,
+      outputUsdPerMillionTokens: 0.08,
+    },
+  },
+  {
+    id: "mixtral-8x7b-32768",
+    provider: "groq",
+    pricing: {
+      inputUsdPerMillionTokens: 0.24,
+      outputUsdPerMillionTokens: 0.24,
+    },
+  },
+  {
+    id: "gemma2-9b-it",
+    provider: "groq",
+    pricing: {
+      inputUsdPerMillionTokens: 0.20,
+      outputUsdPerMillionTokens: 0.20,
     },
   },
   // Ollama local models (free - no API costs)

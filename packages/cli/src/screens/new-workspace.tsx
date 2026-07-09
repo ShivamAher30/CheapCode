@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { z } from "zod";
-import { Mode, modeSchema } from "@localcode/shared";
+import { modeSchema } from "@localcode/shared";
 import { useNavigate, useLocation } from "react-router";
 import { WorkspaceShell } from "../components/workspace-shell";
 import { UserMessage } from "../components/messages";

@@ -13,6 +13,10 @@ type PromptConfigContextValue = {
   setMode: (mode: ModeType) => void;
   model: SupportedChatModelId;
   setModel: (model: SupportedChatModelId) => void;
+  groqApiKey: string | null;
+  setGroqApiKey: (key: string | null) => void;
+  ollamaBaseUrl: string | null;
+  setOllamaBaseUrl: (url: string | null) => void;
 };
 
 const PromptConfigContext = createContext<PromptConfigContextValue | null>(null);
@@ -32,6 +36,8 @@ type PromptConfigProviderProps = {
 export function PromptConfigProvider({ children }: PromptConfigProviderProps) {
   const [mode, setMode] = useState<ModeType>(Mode.BUILD);
   const [model, setModel] = useState<SupportedChatModelId>(DEFAULT_CHAT_MODEL_ID);
+  const [groqApiKey, setGroqApiKey] = useState<string | null>(null);
+  const [ollamaBaseUrl, setOllamaBaseUrl] = useState<string | null>(null);
 
   const toggleMode = useCallback(() => {
     setMode((m) => (m === Mode.BUILD ? Mode.PLAN : Mode.BUILD));
@@ -44,7 +50,11 @@ export function PromptConfigProvider({ children }: PromptConfigProviderProps) {
         toggleMode, 
         setMode, 
         model, 
-        setModel
+        setModel,
+        groqApiKey,
+        setGroqApiKey,
+        ollamaBaseUrl,
+        setOllamaBaseUrl,
     }}>
       {children}
     </PromptConfigContext.Provider>

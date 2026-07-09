@@ -10,6 +10,10 @@ export type CommandContext = {
   mode: ModeType;
   setMode: (mode: ModeType) => void;
   setModel: (model: SupportedChatModelId) => void;
+  groqApiKey: string | null;
+  setGroqApiKey: (key: string | null) => void;
+  ollamaBaseUrl: string | null;
+  setOllamaBaseUrl: (url: string | null) => void;
 };
 
 export type Command = {

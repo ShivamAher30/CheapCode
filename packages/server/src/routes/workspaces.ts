@@ -1,12 +1,29 @@
 import { Hono } from "hono";
-// import { HTTPException } from "hono/http-exception";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { db } from "@localcode/database/client";
+import { randomUUID } from "crypto";
 
-import type { AuthenticatedEnv } from "../middleware/require-auth";
-import { requireCreditsBalance } from "../middleware/require-credits-balance";
+// Simple in-memory workspace store (no database needed)
+type Workspace = {
+  id: string;
+  title: string;
+  path: string;
+  messages: unknown;
+  createdAt: string;
+};
 
+const workspaces = new Map<string, Workspace>();
+
+export function getWorkspace(id: string) {
+  return workspaces.get(id) ?? null;
+}
+
+export function updateWorkspaceMessages(id: string, messages: unknown) {
+  const ws = workspaces.get(id);
+  if (ws) {
+    ws.messages = messages;
+  }
+}
 
 const createWorkspaceSchema = z.object({
   title: z.string(),
@@ -19,38 +36,17 @@ const createWorkspaceValidator = zValidator(
   }
 });
 
-const app = new Hono<AuthenticatedEnv>()
-  .get("/list", async (c) => {
-    const userId = c.get("userId");
+const app = new Hono()
+  .get("/list", (c) => {
+    const list = Array.from(workspaces.values())
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .map(({ id, title, createdAt }) => ({ id, title, createdAt }));
 
-    const workspaces = await db.workspace.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        title: true,
-        createdAt: true,
-      },
-    });
-
-    return c.json(workspaces);
+    return c.json(list);
   })
-  .get("/:id", async (c) => {
-    // MOCK: Uncomment to simulate slow workspace loading
-    // await new Promise((r) => setTimeout(r, 5000))
-
-    // MOCK: Uncomment to simulate workspace loading error
-    // throw new HTTPException(
-    //   500, 
-    //   { message: "Mock error: workspace loading failed" }
-    // )
-
+  .get("/:id", (c) => {
     const id = c.req.param("id");
-    const userId = c.get("userId");
-    
-    const workspace = await db.workspace.findUnique({
-      where: { id, userId },
-    });
+    const workspace = workspaces.get(id);
 
     if (!workspace) {
       return c.json({ error: "Workspace not found" }, 404);
@@ -58,26 +54,18 @@ const app = new Hono<AuthenticatedEnv>()
 
     return c.json(workspace);
   })
-  .post("/create", requireCreditsBalance, createWorkspaceValidator, async (c) => {
-    // MOCK: Uncomment to simulate slow workspace creation
-    // await new Promise((r) => setTimeout(r, 5000))
-
-    // MOCK: Uncomment to simulate workspace creation error
-    // throw new HTTPException(
-    //   500, 
-    //   { message: "Mock error: workspace creation failed" }
-    // )
-
-    const userId = c.get("userId");
+  .post("/create", createWorkspaceValidator, (c) => {
     const data = c.req.valid("json");
 
-    const workspace = await db.workspace.create({
-      data: {
-        ...data,
-        userId,
-      },
-    });
+    const workspace: Workspace = {
+      id: randomUUID(),
+      title: data.title,
+      path: process.cwd(),
+      messages: [],
+      createdAt: new Date().toISOString(),
+    };
 
+    workspaces.set(workspace.id, workspace);
     return c.json(workspace, 201);
   });
 
