@@ -1,299 +1,142 @@
 # CheapCode
 
-A professional terminal-based AI coding assistant designed to work with local AI models through Ollama, enabling cost-effective development without reliance on expensive cloud APIs.
+CheapCode is a professional terminal-based AI coding assistant designed to work with local AI models through Ollama, enabling cost-effective development without reliance on cloud APIs. It features conversational code generation, workspace persistence, and an autonomous multi-step agent mode with plan validation and auto-repair.
 
-**🆕 NEW: Autonomous Agent Mode with explicit planning, automatic verification, and error recovery!**
+## System Architecture
 
-## Overview
-
-CheapCode provides a powerful command-line interface for interacting with AI models to assist with coding tasks. The primary goal is to enable developers to leverage advanced AI capabilities using local models via Ollama, eliminating API costs while maintaining privacy and control over their development environment.
-
-### What's New: Agent Mode 🤖
-
-We've added an **autonomous agent system** that transforms CheapCode into a sophisticated multi-step assistant:
-
-- **📋 Explicit Planning** - Creates structured task lists before execution
-- **🔄 Multi-Step Execution** - Breaks complex goals into manageable tasks
-- **✅ Automatic Verification** - Runs tests and builds automatically
-- **🔧 Error Recovery** - Auto-repairs failed verifications
-- **📊 Progress Tracking** - Real-time updates on execution
-- **🎯 Task Dependencies** - Smart task ordering and blocking
-
-[Learn more about Agent Mode →](./AGENT_QUICK_START.md)
-
-### Screenshots
-
-#### Main Interface
-![Main Interface](./assets/Screenshot%202026-06-18%20123512.png)
-*Clean terminal interface for conversational AI coding assistance*
-
-#### Command Menu
-![Command Menu](./assets/Screenshot%202026-06-18%20125136.png)
-*Quick access to workspaces, models, themes, and account features*
-
-#### Model Selection
-![Model Selection](./assets/Screenshot%202026-06-18%20125902.png)
-*Choose from local Ollama models or cloud providers (Claude, GPT)*
-
-### Key Features
-
-- **Local-First Architecture**: Run AI models locally using Ollama (Llama, Mistral, CodeLlama, and more)
-- **Autonomous Agent Mode**: Multi-step planning with automatic verification and repair
-- **Cloud AI Optional**: Support for Anthropic Claude and OpenAI GPT models when needed
-- **Terminal User Interface**: Clean, efficient TUI built with React and OpenTUI
-- **Workspace Management**: Organize and manage multiple coding sessions
-- **Three Operating Modes**:
-  - **PLAN** - Read-only analysis and exploration
-  - **BUILD** - Direct implementation with immediate execution
-  - **AGENT** - Autonomous multi-step execution with planning
-- **Conversational Interface**: Natural language interaction for coding assistance
-- **High Performance**: Built on Bun runtime for optimal speed
-- **Secure Authentication**: OAuth integration via Clerk
-
-## Architecture
-
-The project is structured as a monorepo with the following packages:
+The project is structured as a monorepo utilizing Bun workspaces:
 
 ```
 cheapcode/
 ├── packages/
-│   ├── cli/              Terminal UI application
-│   ├── server/           Hono-based API server
-│   ├── database/         Prisma schema and database client
-│   └── shared/           Shared types and utilities
+│   ├── cli/              Terminal User Interface (TUI) application built with React and OpenTUI
+│   ├── server/           Hono-based API server orchestrating AI stream responses and agent execution
+│   ├── database/         Prisma schema and client configuration for PostgreSQL persistence
+│   └── shared/           Shared TypeScript types, model definitions, and utility schemas
 ```
+
+### Monorepo Components
+
+*   **CLI (packages/cli)**: Interacts with the local API server using Hono's RPC client (`hc`). It renders terminal components in a high-fidelity rendering loop (up to 60 FPS) and handles interactive commands, file mention autocompletion (`@` queries), and model state.
+*   **Server (packages/server)**: Exposes endpoints for session/workspace management, prompt enrichment, and conversational streams. It coordinates the execution of local system tools (file reading, writing, terminal command execution, and search) requested by the LLM.
+*   **Database (packages/database)**: Manages local database structure and history records using PostgreSQL and Prisma ORM.
+*   **Shared (packages/shared)**: Contains system schemas (such as the operation mode schema) and the registry of supported AI models.
+
+## Core Features
+
+*   **Local-First Execution**: Integrates directly with Ollama to run models (such as Llama 3.2, Mistral, CodeLlama, Qwen 2.5 Coder, and DeepSeek Coder) locally with zero API costs.
+*   **Remote Ollama Integration**: Supports connecting to remote Ollama servers running on other machines in the local network via `/ollama` command. The server dynamically routes requests to the custom endpoint.
+*   **Autonomous Agent Mode**: Translates user goals into execution plans, carries out multi-step file operations, automatically validates code through tests/builds, and auto-repairs errors.
+*   **Bring Your Own Key (BYOK) for Groq**: Support for API keys configured at runtime to query hosted Groq models (Llama 3.3, Mixtral, Gemma 2).
+*   **Operating Modes**:
+    *   **PLAN**: Read-only workspace analysis, code exploration, and diagnostic operations.
+    *   **BUILD**: Immediate code generation and file modifications.
+    *   **AGENT**: Full multi-step autonomous execution mode.
+*   **Prompt Enrichment**: Classifies intent and enriches user instructions with workspace metadata, recent files, and technology stack context before submitting to the model.
 
 ## Prerequisites
 
-Before installing CheapCode, ensure you have the following:
+Ensure you have the following installed on your system:
+*   [Bun](https://bun.sh) runtime (v1.0 or later)
+*   [Ollama](https://ollama.ai) for local model execution
+*   PostgreSQL database instance
 
-- [Bun](https://bun.sh) runtime (v1.0+)
-- [Ollama](https://ollama.ai) for local AI model execution
-- PostgreSQL database (local instance, Neon, Supabase, or similar)
-- Optional: API keys for Anthropic Claude or OpenAI GPT (if using cloud models)
+## Installation and Configuration
 
-## Installation
-
-### 1. Clone and Install Dependencies
-
+### 1. Install Dependencies
+Clone the repository and install packages using Bun:
 ```bash
 git clone <repository-url>
 cd CheapCode
 bun install
 ```
 
-### 2. Configure Ollama
-
-Install Ollama from [ollama.ai](https://ollama.ai) and download your preferred models:
-
-```bash
-# Pull recommended models for coding
-ollama pull llama3.2
-ollama pull codellama
-ollama pull qwen2.5-coder
-
-# Or pull other available models
-ollama pull mistral
-ollama pull deepseek-coder
-```
-
-### 3. Database Setup
-
-Copy the example environment file and configure your database:
-
+### 2. Configure Environment Variables
+Copy the sample environment file to the project root:
 ```bash
 cp .env.example .env
 ```
-
-Edit `.env` with your database credentials:
-
+Edit the `.env` file to configure your credentials:
 ```env
+# Database Connection (PostgreSQL)
 DATABASE_URL=postgresql://user:password@localhost:5432/cheapcode
+
+# Ollama Endpoint Configuration
+OLLAMA_BASE_URL=http://localhost:11434/api
+
+# Optional: Cloud Provider API Keys
+ANTHROPIC_API_KEY=your_anthropic_key
+OPENAI_API_KEY=your_openai_key
+GROQ_API_KEY=your_optional_server_groq_key
 ```
 
-Run database migrations:
-
+### 3. Initialize the Database
+Generate the Prisma client and run database migrations:
 ```bash
 cd packages/database
 bunx prisma migrate dev
 cd ../..
 ```
 
-### 4. Environment Configuration
-
-Configure additional environment variables in `.env`:
-
-```env
-# Ollama Configuration (required for local models)
-OLLAMA_BASE_URL=http://localhost:11434/api
-
-# Optional: Cloud AI Providers
-ANTHROPIC_API_KEY=your_anthropic_key
-OPENAI_API_KEY=your_openai_key
-
-# Optional: Authentication (Clerk)
-CLERK_SECRET_KEY=your_clerk_secret
-CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+### 4. Setup Ollama Models
+Ensure the Ollama service is active and pull the required models:
+```bash
+ollama pull llama3.2
+ollama pull codellama
+ollama pull qwen2.5-coder
 ```
 
-## Usage
+## Running the Application
 
 ### Development Mode
+Run the backend server and frontend CLI in separate terminal windows:
 
-Start the server and CLI in separate terminal sessions:
-
-**Terminal 1 - API Server:**
+**Terminal 1 (Backend API Server):**
 ```bash
 bun run dev:server
 ```
 
-**Terminal 2 - CLI Interface:**
+**Terminal 2 (CLI Terminal Interface):**
 ```bash
 bun run dev:cli
 ```
 
-### Production Build
-
-Build and link the CLI globally:
-
+### Production Build and Global Linking
+To bundle the application and run CheapCode globally on your system:
 ```bash
+# Build the self-contained package and link globally
 bun run link:cli
+
+# Run CheapCode from any workspace directory
 cheapcode
 ```
 
-## Available AI Models
+## CLI Commands
 
-### Local Models (via Ollama)
+You can enter the following commands in the CLI input bar:
 
-Running models locally through Ollama provides zero-cost AI assistance:
-
-| Model | Description | Use Case |
-|-------|-------------|----------|
-| `llama3.2` | Meta's latest Llama | General purpose, good balance |
-| `codellama` | Code-specialized Llama | Code generation and analysis |
-| `qwen2.5-coder` | Qwen coding model | Fast, efficient coding tasks |
-| `deepseek-coder` | DeepSeek coding model | Advanced code understanding |
-| `mistral` | Mistral AI model | Fast general-purpose assistant |
-
-### Cloud Models (Optional)
-
-Cloud models require API keys and incur usage costs:
-
-- **Anthropic Claude**: Sonnet 4.6, Haiku 4.5, Opus 4.6
-- **OpenAI GPT**: GPT-5.4, GPT-5.4-mini, GPT-5.4-nano
-
-## API Endpoints
-
-The server exposes RESTful endpoints at `/api/v1/`:
-
-```
-/api/v1/
-├── authentication/
-│   ├── login
-│   ├── callback
-│   └── logout
-├── workspaces/
-│   ├── list
-│   ├── create
-│   └── :id
-└── conversations/
-    └── stream
-```
-
-## Development Commands
-
-| Command | Description |
-|---------|-------------|
-| `bun install` | Install all dependencies |
-| `bun run dev:server` | Start server with hot reload |
-| `bun run dev:cli` | Start CLI with watch mode |
-| `bun run build:cli` | Build CLI for production |
-| `bun run link:cli` | Link CLI globally after build |
+*   `/new`: Starts a new workspace conversation.
+*   `/agents`: Opens the agent selection menu to switch modes.
+*   `/models`: Opens a model selection menu to change the active model.
+*   `/groq`: Sets a temporary Groq API key and changes the active model to a Groq model.
+*   `/ollama`: Configures a custom Ollama base URL (e.g. for remote local network servers) and selects a local model.
+*   `/workspaces`: Opens a workspace dialog to search and resume past coding sessions.
+*   `/theme`: Changes the terminal UI color theme.
+*   `/exit`: Safely terminates the CLI process.
 
 ## Technology Stack
 
-- **Runtime**: Bun
-- **Frontend**: React with OpenTUI for terminal rendering
-- **Backend**: Hono (lightweight HTTP framework)
-- **Database**: PostgreSQL with Prisma ORM
-- **AI Integration**: Vercel AI SDK
-- **AI Providers**: Ollama (local), Anthropic Claude, OpenAI GPT
-- **Authentication**: Clerk OAuth
-
-## Configuration
-
-### Changing Ollama Server
-
-If running Ollama on a different host or port:
-
-```env
-OLLAMA_BASE_URL=http://your-server:11434/api
-```
-
-### Selecting Default Model
-
-The default model is `llama3.2`. To change it, modify `DEFAULT_CHAT_MODEL_ID` in `packages/shared/src/models.ts`.
-
-### Model Selection in CLI
-
-Press Tab in the CLI to open the model selection menu and choose from available local or cloud models.
+*   **Runtime Environment**: Bun
+*   **TUI Rendering Engine**: OpenTUI (React integration for terminal interfaces)
+*   **Web Framework**: Hono (handles HMR server-side routes and RPC interfaces)
+*   **ORM and Database**: Prisma with PostgreSQL
+*   **Inference Engine**: Vercel AI SDK
+*   **AI Backend**: Ollama (local/network), Groq (cloud BYOK), OpenAI (cloud), Anthropic (cloud)
 
 ## Troubleshooting
 
-### ENOENT: Cannot find '@localcode/shared'
+### Workspace package not resolved ('@localcode/shared')
+Ensure you run `bun install` from the root directory rather than within individual subfolders. This allows Bun to properly establish monorepo symlinks between packages.
 
-This error indicates missing workspace dependencies. Run:
-
-```bash
-bun install
-```
-
-This will properly link workspace packages and resolve the dependency.
-
-### Ollama Connection Issues
-
-Ensure Ollama is running:
-
-```bash
-ollama serve
-```
-
-Verify models are available:
-
-```bash
-ollama list
-```
-
-### Database Connection Errors
-
-Verify your `DATABASE_URL` in `.env` is correct and the database is accessible. Test with:
-
-```bash
-cd packages/database
-bunx prisma db push
-```
-
-## Contributing
-
-Contributions are welcome. Please follow these guidelines:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes with clear commit messages
-4. Submit a pull request with a detailed description
-
-## Documentation
-
-- **[Quick Start Guide](./AGENT_QUICK_START.md)** - Get started with Agent Mode in 5 minutes
-- **[Architecture Overview](./AGENT_ARCHITECTURE.md)** - System design and technical details
-- **[Migration Guide](./AGENT_MIGRATION_GUIDE.md)** - Comprehensive usage guide
-- **[Agent Technical Docs](./packages/server/src/agent/README.md)** - Deep dive into the agent system
-- **[Implementation Summary](./IMPLEMENTATION_SUMMARY.md)** - What was built and why
-
-## License
-
-MIT License - see LICENSE file for details
-
-## Support
-
-For issues, questions, or contributions, please visit the project repository.
+### Ollama fails to connect
+Verify that the Ollama service is active by running `ollama list`. If you are connecting to a remote Ollama server, ensure the remote host is running with `OLLAMA_HOST=0.0.0.0` and that port `11434` is open in the remote system's firewall.

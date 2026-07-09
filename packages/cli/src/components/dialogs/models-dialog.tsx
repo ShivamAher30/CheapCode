@@ -59,7 +59,7 @@ export const ModelsDialogContent = ({
               </text>
             )}
             {model && model.provider !== "ollama" && model.provider !== "groq" && (
-              <text selectable={false} fg={isSelected ? "gray" : "gray"} dim>
+              <text selectable={false} fg={isSelected ? "gray" : "gray"} >
                 ({model.provider})
               </text>
             )}
